@@ -1,0 +1,5 @@
+filebeat.inputs:
+- type: filestream
+  id: my-php-fpm-id
+  paths:
+    - "/var/log/php8.3-fpm.log*"
