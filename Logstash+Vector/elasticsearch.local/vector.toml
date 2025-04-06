@@ -1,0 +1,80 @@
+[sources.vector_nginx_input]
+type = "vector"
+address = "0.0.0.0:6000"
+
+[sources.vector_postgresql_input]
+type = "vector"
+address = "0.0.0.0:6001"
+
+[transforms.nginx_access_logs_parser]
+type = "remap"
+inputs = [ "vector_nginx_input" ]
+drop_on_abort = true
+source = '''
+parsed = parse_nginx_log!(.message, "combined")
+. = merge(., parsed)
+'''
+
+[transforms.nginx_access_logs_to_json]
+type = "remap"
+inputs = [ "nginx_access_logs_parser" ]
+drop_on_abort = true
+source = '''
+. = parse_json!(.message)
+'''
+[transforms.postgresql_parse_json]
+type = "remap"
+inputs = ["vector_postgresql_input"]
+source = '''
+kvs = parse_json!(.message)
+if kvs == null {
+  abort
+}
+
+. = merge!(., kvs)
+'''
+
+[sinks.nginx_to_elasticsearch]
+type = "elasticsearch"
+inputs = [ "nginx_access_logs_to_json" ]
+bulk = { index = "nginx-access-logs-%Y-%m-%d" }
+compression = "none"
+healthcheck = true
+endpoints = [ "https://localhost:9200" ]
+auth.strategy = "basic"
+auth.user = "elastic"
+auth.password = "lkSC57vGwQAYpdSLGoos"
+tls.verify_certificate = false
+
+[sinks.postgresql_to_elasticsearch]
+type = "elasticsearch"
+inputs = ["postgresql_parse_json"]
+bulk = { index = "postgresql-logs-%Y-%m-%d" }
+compression = "none"
+healthcheck = true
+endpoints = [ "https://localhost:9200" ]
+auth.strategy = "basic"
+auth.user = "elastic"
+auth.password = "lkSC57vGwQAYpdSLGoos"
+tls.verify_certificate = false
+
+
+#[sinks.pg_to_elasticsearch]
+#type = "elasticsearch"
+#inputs = [ 
+#"pg_to_json"
+#]
+#encoding.codec = "json"
+#compression = "none"
+#healthcheck = true
+#endpoints = [ "https://localhost:9200" ]
+#auth.strategy = "basic"
+#auth.user = "elastic"
+#auth.password = "lkSC57vGwQAYpdSLGoos"
+#tls.verify_certificate = false
+
+#[sinks.output]
+#type = "console"
+#inputs = ["pg_to_json"]
+#target = "stdout"
+#encoding.codec = "json"
