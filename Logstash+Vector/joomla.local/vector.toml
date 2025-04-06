@@ -1,0 +1,33 @@
+data_dir = "/var/lib/vector"
+
+[sources.nginx_access_logs]
+type = "file"
+include = [ "/var/log/nginx/access.log" ]
+
+[sources.postgresql_logs]
+type = "file"
+read_from = "beginning"
+include = [ "/var/lib/postgresql/15/main/log/*.json" ]
+
+[sources.php_fpm_logs]
+type = "file"
+include = [ "/var/log/php*-fpm.log" ]
+
+[sinks.vector_nginx_output]
+type = "vector"
+inputs = [
+	"nginx_access_logs"
+]
+address = "elasticsearch.local:6000"
+
+
+#[sinks.output]
+#type = "console"
+#inputs = ["pg_json"]
+#target = "stdout"
+#encoding.codec = "json"
+
+[sinks.vector_postgresqloutput]
+type = "vector"
+inputs = ["postgresql_logs"]
+address = "elasticsearch.local:6001"
