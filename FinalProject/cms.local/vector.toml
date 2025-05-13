@@ -1,0 +1,88 @@
+data_dir = "/var/lib/vector"
+
+[sources.nginx_access_logs]
+type = "file"
+include = [ "/var/log/nginx/access.log" ]
+
+[sources.nginx_error_logs]
+type = "file"
+include = [ "/var/log/nginx/error.log" ]
+
+[sources.php_access_logs]
+  type = "file"
+  include = ["/var/log/php8.3-fpm.www.access.log"]
+  start_at_beginning = false  # Читать с конца файла
+
+[sources.php_error_logs]
+  type = "file"
+  include = ["/var/log/php8.3-fpm.www.error.log"]
+  start_at_beginning = false
+
+[sources.postgresql_logs]
+type = "file"
+read_from = "beginning"
+include = [ "/var/lib/postgresql/15/main/log/*.json" ]
+
+[sources.php_fpm_logs]
+type = "file"
+include = [ "/var/log/php*-fpm.log" ]
+
+[sinks.vector_nginx_access_output]
+type = "vector"
+inputs = [
+	"nginx_access_logs"
+]
+address = "opensearch.local:6000"
+
+[sinks.vector_nginx_error_output]
+type = "vector"
+inputs = [ "nginx_error_logs" ]
+address = "opensearch.local:6002"
+
+[transforms.parse_php_access]
+type = "remap"
+inputs = ["php_access_logs"]
+  source = '''
+    # Парсим структурированные данные
+    . |= parse_regex!(.message, r'^(?P<raw_timestamp>[^\|]+)\s*\|\s*(?P<client>[^\|]+)\s*\|\s*(?P<method>\w+)\s+(?P<path>[^\|]+)\s*\|\s*(?P<status>\d+)\s*\|\s*(?P<response_time>[\d\.]+)ms\s*\|\s*(?P<memory>\d+)kb$')
+    # Удаляем временные поля
+    del(.message)  # Опционально - убираем исходное сообщение
+    
+    # Добавляем мета-поля
+    .service = "php-fpm"
+    .log_type = "access"
+'''
+
+[transforms.php_access_logs_to_json]
+type = "remap"
+inputs = [ "parse_php_access" ]
+drop_on_abort = true
+source = '''
+. = parse_json!(.message)
+'''
+
+[sinks.debug]
+  type = "console"
+  inputs = ["php_access_logs_to_json"]
+  encoding.codec = "json"
+
+[sinks.vector_php_access_output]
+type = "vector"
+inputs = [ "parse_php_access" ]
+address = "opensearch.local:6003"
+
+[sinks.vector_php_error_output]
+type = "vector"
+inputs = [ "php_error_logs" ]  
+address = "opensearch.local:6004"
+
+#[sinks.output]
+#type = "console"
+#inputs = ["pg_json"]
+#target = "stdout"
+#encoding.codec = "json"
+
+[sinks.vector_postgresqloutput]
+type = "vector"
+inputs = ["postgresql_logs"]
+address = "opensearch.local:6001"
