@@ -119,8 +119,6 @@
 
 ![image](https://github.com/user-attachments/assets/dc66dfd8-76d5-4b25-9941-1abd2590ffd6)
 
-![image](https://github.com/user-attachments/assets/14869722-db0a-402f-af71-3bc9915bdb85)
-
 
 
 ## Логирование
@@ -137,6 +135,8 @@ OpenSearch (Vector, OpenSearch, OpenSearch Dashboards):
 ![image](https://github.com/user-attachments/assets/c513505f-7e98-4994-8a23-0f0c5439ca3b)
 
 ![image](https://github.com/user-attachments/assets/3e35e093-9382-4682-a70e-ecede6b05738)
+
+![image](https://github.com/user-attachments/assets/14869722-db0a-402f-af71-3bc9915bdb85)
 
 
 На дашборде созданы для примера две визуализации с кодами ошибок и количеством ошибок
