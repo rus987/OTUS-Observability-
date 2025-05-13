@@ -1,0 +1,134 @@
+[sources.vector_nginx_access_input]
+type = "vector"
+address = "0.0.0.0:6000"
+
+[sources.vector_nginx_error_input]
+type = "vector"
+address = "0.0.0.0:6002"
+
+[sources.vector_postgresql_input]
+type = "vector"
+address = "0.0.0.0:6001"
+
+[sources.vector_php_access_input]
+type = "vector"
+address = "0.0.0.0:6003"
+
+[sources.vector_php_error_input]
+type = "vector"
+address = "0.0.0.0:6004"
+
+[transforms.nginx_access_logs_parser]
+type = "remap"
+inputs = [ "vector_nginx_access_input" ]
+drop_on_abort = true
+source = '''
+parsed = parse_nginx_log!(.message, "combined")
+. = merge(., parsed)
+'''
+
+[transforms.nginx_error_logs_parser]
+type = "remap"
+inputs = [ "vector_nginx_error_input" ]
+source = '''
+parsed = parse_nginx_log!(.message, "error")
+. = merge(., parsed)
+'''
+#drop_on_abort = true
+#source = '''
+#parsed = parse_nginx_log!(.message, "combined")
+#. = merge(., parsed)
+#'''
+
+[transforms.nginx_access_logs_to_json]
+type = "remap"
+inputs = [ "nginx_access_logs_parser" ]
+drop_on_abort = true
+source = '''
+. = parse_json!(.message)
+'''
+
+[transforms.nginx_error_logs_to_json]
+type = "remap"
+inputs = [ "nginx_error_logs_parser" ]
+drop_on_abort = true
+source = '''
+. = parse_json!(.message)
+'''
+
+[transforms.postgresql_parse_json]
+type = "remap"
+inputs = ["vector_postgresql_input"]
+source = '''
+kvs = parse_json!(.message)
+if kvs == null {
+  abort
+}
+
+. = merge!(., kvs)
+'''
+
+[sinks.nginx_access_to_opensearch]
+type = "elasticsearch"
+inputs = [ "nginx_access_logs_to_json" ]
+bulk = { index = "nginx-access-logs-%Y-%m-%d" }
+compression = "none"
+healthcheck = true
+endpoints = [ "https://localhost:9200" ]
+auth.strategy = "basic"
+auth.user = "admin"
+auth.password = "Tra-ta-ta-123"
+tls.verify_certificate = false
+api_version = "v8"
+
+[sinks.nginx_error_to_opensearch]
+type = "elasticsearch"
+inputs = [ "nginx_error_logs_to_json" ]
+bulk = { index = "nginx-error-logs-%Y-%m-%d" }
+compression = "none"
+healthcheck = true
+endpoints = [ "https://localhost:9200" ]
+auth.strategy = "basic"
+auth.user = "admin"
+auth.password = "Tra-ta-ta-123"
+tls.verify_certificate = false
+api_version = "v8"
+
+[sinks.postgresql_to_opensearch]
+type = "elasticsearch"
+inputs = ["postgresql_parse_json"]
+bulk = { index = "postgresql-logs-%Y-%m-%d" }
+compression = "none"
+healthcheck = true
+endpoints = [ "https://localhost:9200" ]
+auth.strategy = "basic"
+auth.user = "admin"
+auth.password = "Tra-ta-ta-123"
+tls.verify_certificate = false
+api_version = "v8"
+
+[sinks.php_access_to_opensearch]
+type = "elasticsearch"
+inputs = [ "vector_php_access_input" ]
+bulk = { index = "php-access-logs-%Y-%m-%d" }
+compression = "none"
+healthcheck = true
+endpoints = [ "https://localhost:9200" ]
+auth.strategy = "basic"
+auth.user = "admin"
+auth.password = "Tra-ta-ta-123"
+tls.verify_certificate = false
+api_version = "v8"
+
+[sinks.php_error_to_opensearch]
+type = "elasticsearch"
+inputs = [ "vector_php_error_input" ]
+bulk = { index = "php-error-logs-%Y-%m-%d" }
+compression = "none"
+healthcheck = true  
+endpoints = [ "https://localhost:9200" ]
+auth.strategy = "basic"
+auth.user = "admin"
+auth.password = "Tra-ta-ta-123"
+tls.verify_certificate = false
+api_version = "v8"
